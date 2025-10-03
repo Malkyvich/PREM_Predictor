@@ -70,12 +70,12 @@
             
             <!-- Points System Explanation -->
             <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                <h3 class="font-bold mb-2">📋 Points System</h3>
+                <h3 class="font-bold mb-2">📋 Weekly Ranking System</h3>
                 <ul class="text-sm space-y-1">
-                    <li><strong>Exact Score:</strong> 5 points</li>
-                    <li><strong>Correct Result + Margin Within 3 Points:</strong> 3 points</li>
-                    <li><strong>Correct Result Only:</strong> 1 point</li>
-                    <li><strong>Wrong Result:</strong> 0 points</li>
+                    <li><strong>Match Points:</strong> Exact Score (5pts) • Correct Result + Margin ≤3 (3pts) • Correct Result (1pt) • Wrong (0pts)</li>
+                    <li><strong>Weekly Ranking:</strong> Total match points per Game Week, with accuracy as tiebreaker</li>
+                    <li><strong>Season Points:</strong> 1st place = 3pts • 2nd place = 2pts • 3rd place = 1pt</li>
+                    <li><strong>Accuracy Score:</strong> Average margin difference (lower = better) • Wrong winners get negative accuracy</li>
                 </ul>
             </div>
         </div>
@@ -368,7 +368,7 @@
             if (tabName === 'results') updateResultsView();
         }
 
-        // Calculate points for a prediction
+        // Calculate points for a prediction (unchanged)
         function calculatePoints(prediction, actual) {
             if (!prediction || !actual) return 0;
 
@@ -401,45 +401,151 @@
             return 0; // Wrong result
         }
 
-        // Update leaderboard
-        function updateLeaderboard() {
-            const playerStats = {};
+        // Calculate accuracy score for a prediction
+        function calculateAccuracy(prediction, actual) {
+            if (!prediction || !actual) return null;
 
-            // Initialize player stats
+            const predHome = parseInt(prediction.homeScore);
+            const predAway = parseInt(prediction.awayScore);
+            const actualHome = parseInt(actual.homeScore);
+            const actualAway = parseInt(actual.awayScore);
+
+            const predResult = predHome > predAway ? 'home' : (predHome < predAway ? 'away' : 'draw');
+            const actualResult = actualHome > actualAway ? 'home' : (actualHome < actualAway ? 'away' : 'draw');
+
+            // If wrong winner prediction, return negative accuracy
+            if (predResult !== actualResult) {
+                return -Math.abs(Math.abs(predHome - predAway) - Math.abs(actualHome - actualAway));
+            }
+
+            // If correct winner, return margin difference (lower is better)
+            const predMargin = Math.abs(predHome - predAway);
+            const actualMargin = Math.abs(actualHome - actualAway);
+            return Math.abs(predMargin - actualMargin);
+        }
+
+        // Calculate weekly rankings and season points
+        function calculateWeeklyRankings() {
+            const weeklyResults = {};
+            const seasonTotals = {};
+
+            // Initialize season totals
             Object.keys(playerNames).forEach(playerId => {
-                playerStats[playerId] = {
+                seasonTotals[playerId] = {
                     name: playerNames[playerId],
-                    totalPoints: 0,
-                    exactScores: 0,
-                    correctResults: 0,
-                    predictions: 0
+                    seasonPoints: 0,
+                    weeksWon: 0,
+                    weeksSecond: 0,
+                    weeksThird: 0,
+                    weeklyHistory: []
                 };
             });
 
-            // Calculate points for each completed fixture
+            // Group fixtures by round
+            const fixturesByRound = {};
             fixtures.forEach(fixture => {
                 if (fixture.completed && results[fixture.id]) {
-                    Object.keys(predictions).forEach(playerId => {
-                        const prediction = predictions[playerId][fixture.id];
-                        if (prediction) {
-                            playerStats[playerId].predictions++;
-                            const points = calculatePoints(prediction, results[fixture.id]);
-                            playerStats[playerId].totalPoints += points;
-                            
-                            if (points === 5) playerStats[playerId].exactScores++;
-                            if (points >= 1) playerStats[playerId].correctResults++;
-                        }
-                    });
+                    const round = fixture.round || 'Other';
+                    if (!fixturesByRound[round]) fixturesByRound[round] = [];
+                    fixturesByRound[round].push(fixture);
                 }
             });
 
-            // Sort by total points
-            const sortedPlayers = Object.values(playerStats).sort((a, b) => b.totalPoints - a.totalPoints);
+            // Calculate for each completed round
+            Object.keys(fixturesByRound).forEach(round => {
+                const roundFixtures = fixturesByRound[round];
+                const weeklyStats = {};
 
-            // Render leaderboard
-            const leaderboardHtml = sortedPlayers.map((player, index) => {
+                // Initialize weekly stats
+                Object.keys(playerNames).forEach(playerId => {
+                    weeklyStats[playerId] = {
+                        name: playerNames[playerId],
+                        weeklyPoints: 0,
+                        predictions: 0,
+                        accuracyScores: []
+                    };
+                });
+
+                // Calculate weekly points and accuracy for each player
+                roundFixtures.forEach(fixture => {
+                    Object.keys(predictions).forEach(playerId => {
+                        const prediction = predictions[playerId][fixture.id];
+                        if (prediction) {
+                            weeklyStats[playerId].predictions++;
+                            weeklyStats[playerId].weeklyPoints += calculatePoints(prediction, results[fixture.id]);
+                            
+                            const accuracy = calculateAccuracy(prediction, results[fixture.id]);
+                            if (accuracy !== null) {
+                                weeklyStats[playerId].accuracyScores.push(accuracy);
+                            }
+                        }
+                    });
+                });
+
+                // Calculate average accuracy for each player
+                Object.keys(weeklyStats).forEach(playerId => {
+                    const stats = weeklyStats[playerId];
+                    if (stats.accuracyScores.length > 0) {
+                        stats.averageAccuracy = stats.accuracyScores.reduce((sum, acc) => sum + acc, 0) / stats.accuracyScores.length;
+                    } else {
+                        stats.averageAccuracy = 999; // High penalty for no predictions
+                    }
+                });
+
+                // Rank players for this week (by points, then by accuracy)
+                const weeklyRanking = Object.values(weeklyStats)
+                    .filter(stats => stats.predictions > 0)
+                    .sort((a, b) => {
+                        if (b.weeklyPoints === a.weeklyPoints) {
+                            return a.averageAccuracy - b.averageAccuracy; // Lower accuracy is better
+                        }
+                        return b.weeklyPoints - a.weeklyPoints;
+                    });
+
+                // Award season points based on weekly ranking
+                weeklyRanking.forEach((player, index) => {
+                    const playerId = Object.keys(playerNames).find(id => playerNames[id] === player.name);
+                    const position = index + 1;
+                    
+                    let seasonPoints = 0;
+                    if (position === 1) {
+                        seasonPoints = 3;
+                        seasonTotals[playerId].weeksWon++;
+                    } else if (position === 2) {
+                        seasonPoints = 2;
+                        seasonTotals[playerId].weeksSecond++;
+                    } else if (position === 3) {
+                        seasonPoints = 1;
+                        seasonTotals[playerId].weeksThird++;
+                    }
+
+                    seasonTotals[playerId].seasonPoints += seasonPoints;
+                    seasonTotals[playerId].weeklyHistory.push({
+                        round,
+                        position,
+                        weeklyPoints: player.weeklyPoints,
+                        accuracy: player.averageAccuracy.toFixed(2),
+                        seasonPoints
+                    });
+                });
+
+                weeklyResults[round] = weeklyRanking;
+            });
+
+            return { weeklyResults, seasonTotals };
+        }
+
+        // Update leaderboard
+        function updateLeaderboard() {
+            const { weeklyResults, seasonTotals } = calculateWeeklyRankings();
+
+            // Sort players by season points
+            const sortedPlayers = Object.values(seasonTotals).sort((a, b) => b.seasonPoints - a.seasonPoints);
+
+            // Render season leaderboard
+            const seasonLeaderboardHtml = sortedPlayers.map((player, index) => {
                 const position = index + 1;
-                const isWinner = position === 1 && player.totalPoints > 0;
+                const isWinner = position === 1 && player.seasonPoints > 0;
                 
                 return `
                     <div class="flex items-center justify-between p-4 rounded-lg border ${isWinner ? 'winner-highlight text-white' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600'}">
@@ -450,21 +556,68 @@
                             <div>
                                 <div class="font-bold text-lg">${player.name}</div>
                                 <div class="text-sm ${isWinner ? 'text-gray-200' : 'text-gray-500 dark:text-gray-400'}">
-                                    ${player.predictions} predictions made
+                                    ${player.weeksWon}W • ${player.weeksSecond}× 2nd • ${player.weeksThird}× 3rd
                                 </div>
                             </div>
                         </div>
                         <div class="text-right">
-                            <div class="text-2xl font-bold">${player.totalPoints}</div>
+                            <div class="text-2xl font-bold">${player.seasonPoints}</div>
                             <div class="text-sm ${isWinner ? 'text-gray-200' : 'text-gray-500 dark:text-gray-400'}">
-                                ${player.exactScores} exact • ${player.correctResults} correct
+                                Season Points
                             </div>
                         </div>
                     </div>
                 `;
             }).join('');
 
-            document.getElementById('leaderboard-content').innerHTML = leaderboardHtml || '<p class="text-gray-500 dark:text-gray-400 text-center py-8">No predictions made yet. Make some predictions to see the leaderboard!</p>';
+            // Render weekly results
+            const weeklyResultsHtml = Object.keys(weeklyResults).reverse().map(round => {
+                const weekResults = weeklyResults[round];
+                
+                const weekHtml = weekResults.map((player, index) => {
+                    const position = index + 1;
+                    const seasonPointsEarned = position === 1 ? 3 : position === 2 ? 2 : position === 3 ? 1 : 0;
+                    
+                    return `
+                        <div class="flex justify-between items-center py-2 px-3 rounded ${position === 1 ? 'bg-yellow-50 dark:bg-yellow-900/20' : position === 2 ? 'bg-gray-50 dark:bg-gray-700/50' : position === 3 ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-gray-25 dark:bg-gray-800/30'}">
+                            <div class="flex items-center space-x-3">
+                                <span class="font-bold text-lg">${position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : `#${position}`}</span>
+                                <span class="font-medium">${player.name}</span>
+                            </div>
+                            <div class="text-right text-sm">
+                                <div class="font-bold">${player.weeklyPoints} pts • ${seasonPointsEarned} season pts</div>
+                                <div class="text-gray-500 dark:text-gray-400">Accuracy: ${player.averageAccuracy.toFixed(1)}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="mb-6">
+                        <h4 class="font-bold text-lg mb-3 text-primary">${round} Results</h4>
+                        <div class="space-y-2">
+                            ${weekHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const leaderboardContent = `
+                <div class="mb-8">
+                    <h3 class="text-xl font-bold mb-4">🏆 Season Championship</h3>
+                    <div class="space-y-3">
+                        ${seasonLeaderboardHtml}
+                    </div>
+                </div>
+                ${weeklyResultsHtml ? `
+                    <div>
+                        <h3 class="text-xl font-bold mb-4">📅 Weekly Results</h3>
+                        ${weeklyResultsHtml}
+                    </div>
+                ` : ''}
+            `;
+
+            document.getElementById('leaderboard-content').innerHTML = leaderboardContent || '<p class="text-gray-500 dark:text-gray-400 text-center py-8">No predictions made yet. Make some predictions to see the leaderboard!</p>';
         }
 
         // Update predictions view

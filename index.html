@@ -33,6 +33,79 @@
         }
     </style>
 </head>
+<!-- Player Selector (if not already in your HTML) -->
+<label for="playerSelect">Choose player:</label>
+<select id="playerSelect">
+  <option value="Martin">Martin</option>
+  <option value="Charles">Charles</option>
+  <option value="Alex">Alex</option>
+</select>
+
+<script>
+// --- Save/load predictions ---
+function savePrediction(fixtureId, player, home, away) {
+  let predictions = JSON.parse(localStorage.getItem("predictions") || "{}");
+  if (!predictions[fixtureId]) predictions[fixtureId] = {};
+  predictions[fixtureId][player] = {home, away};
+  localStorage.setItem("predictions", JSON.stringify(predictions));
+}
+
+function loadPrediction(fixtureId, player) {
+  let predictions = JSON.parse(localStorage.getItem("predictions") || "{}");
+  return predictions[fixtureId] ? predictions[fixtureId][player] : null;
+}
+
+// --- Add prediction boxes to each fixture div ---
+function renderPredictionBoxes() {
+  const player = document.getElementById("playerSelect").value;
+  const fixtures = document.querySelectorAll(".fixture");
+
+  fixtures.forEach((fixture, i) => {
+    const fixtureId = "fixture-" + i;
+
+    // check if prediction box already exists
+    let box = fixture.querySelector(".prediction-box");
+    if (!box) {
+      box = document.createElement("div");
+      box.classList.add("prediction-box");
+      box.innerHTML = `
+        <input type="number" class="pred-home" placeholder="Home">
+        <input type="number" class="pred-away" placeholder="Away">
+        <button class="save-pred">Save</button>
+        <span class="saved"></span>
+      `;
+      fixture.appendChild(box);
+
+      // Save button
+      box.querySelector(".save-pred").addEventListener("click", () => {
+        const home = box.querySelector(".pred-home").value;
+        const away = box.querySelector(".pred-away").value;
+        savePrediction(fixtureId, player, home, away);
+        box.querySelector(".saved").innerText = `Saved: ${home}-${away}`;
+      });
+    }
+
+    // Load saved prediction for current player
+    const pred = loadPrediction(fixtureId, player);
+    if (pred) {
+      box.querySelector(".pred-home").value = pred.home;
+      box.querySelector(".pred-away").value = pred.away;
+      box.querySelector(".saved").innerText = `Saved: ${pred.home}-${pred.away}`;
+    } else {
+      box.querySelector(".pred-home").value = "";
+      box.querySelector(".pred-away").value = "";
+      box.querySelector(".saved").innerText = "";
+    }
+  });
+}
+
+// --- Update predictions when player changes ---
+document.getElementById("playerSelect").addEventListener("change", renderPredictionBoxes);
+
+// --- Initial render ---
+window.onload = renderPredictionBoxes;
+</script>
+
 <body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
         <!-- Header -->

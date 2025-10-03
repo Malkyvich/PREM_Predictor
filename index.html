@@ -33,103 +33,6 @@
         }
     </style>
 </head>
-<!-- Player Selector (if not already in your HTML) -->
-<label for="playerSelect">Choose player:</label>
-<select id="playerSelect">
-  <option value="Martin">Martin</option>
-  <option value="Charles">Charles</option>
-  <option value="Alex">Alex</option>
-</select>
-
-<script>
-// --- Save/load predictions ---
-function savePrediction(fixtureId, player, home, away) {
-  let predictions = JSON.parse(localStorage.getItem("predictions") || "{}");
-  if (!predictions[fixtureId]) predictions[fixtureId] = {};
-  predictions[fixtureId][player] = {home, away};
-  localStorage.setItem("predictions", JSON.stringify(predictions));
-}
-
-function loadPrediction(fixtureId, player) {
-  let predictions = JSON.parse(localStorage.getItem("predictions") || "{}");
-  return predictions[fixtureId] ? predictions[fixtureId][player] : null;
-}
-
-// --- Add prediction boxes to each fixture div ---
-function renderPredictionBoxes() {
-  const player = document.getElementById("playerSelect").value;
-  const fixtures = document.querySelectorAll(".fixture");
-
-  fixtures.forEach((fixture, i) => {
-    const fixtureId = "fixture-" + i;
-
-    // check if prediction box already exists
-    let box = fixture.querySelector(".prediction-box");
-    if (!box) {
-      box = document.createElement("div");
-      box.classList.add("prediction-box");
-      box.innerHTML = `
-        <input type="number" class="pred-home" placeholder="Home">
-        <input type="number" class="pred-away" placeholder="Away">
-        <button class="save-pred">Save</button>
-        <span class="saved"></span>
-      `;
-      fixture.appendChild(box);
-
-      // Save button
-      box.querySelector(".save-pred").addEventListener("click", () => {
-        const home = box.querySelector(".pred-home").value;
-        const away = box.querySelector(".pred-away").value;
-        savePrediction(fixtureId, player, home, away);
-        box.querySelector(".saved").innerText = `Saved: ${home}-${away}`;
-      });
-    }
-
-    // Load saved prediction for current player
-    const pred = loadPrediction(fixtureId, player);
-    if (pred) {
-      box.querySelector(".pred-home").value = pred.home;
-      box.querySelector(".pred-away").value = pred.away;
-      box.querySelector(".saved").innerText = `Saved: ${pred.home}-${pred.away}`;
-    } else {
-      box.querySelector(".pred-home").value = "";
-      box.querySelector(".pred-away").value = "";
-      box.querySelector(".saved").innerText = "";
-    }
-  });
-}
-
-// --- Update predictions when player changes ---
-document.getElementById("playerSelect").addEventListener("change", renderPredictionBoxes);
-
-// --- Initial render ---
-window.onload = renderPredictionBoxes;
-</script>
-
-<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
-    <div class="container mx-auto px-4 py-6 max-w-6xl">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                🏉 Rugby Premiership Predictor
-            </h1>
-            <p class="text-lg text-gray-600 dark:text-gray-400">Season 2025/26 • 3 Player Championship</p>
-        </div>
-
-        <!-- Navigation Tabs -->
-        <div class="flex flex-wrap justify-center mb-6 border-b border-gray-200 dark:border-gray-700">
-            <button onclick="showTab('leaderboard')" id="tab-leaderboard" class="tab-button px-6 py-3 font-medium border-b-2 border-primary text-primary">
-                🏆 Leaderboard
-            </button>
-            <button onclick="showTab('predictions')" id="tab-predictions" class="tab-button px-6 py-3 font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-                📊 Predictions
-            </button>
-            <button onclick="showTab('fixtures')" id="tab-fixtures" class="tab-button px-6 py-3 font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-                📅 Fixtures
-            </button>
-            <button onclick="showTab('results')" id="tab-results" class="tab-button px-6 py-3 font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-                ✅ Enter Results
-            </button>
         </div>
 
         <!-- Leaderboard Tab -->
@@ -969,4 +872,93 @@ window.onload = renderPredictionBoxes;
         showTab('leaderboard');
     </script>
 </body>
+    script>
+// --- Save/load predictions ---
+function savePrediction(fixtureId, player, home, away) {
+  let predictions = JSON.parse(localStorage.getItem("predictions") || "{}");
+  if (!predictions[fixtureId]) predictions[fixtureId] = {};
+  predictions[fixtureId][player] = {home, away};
+  localStorage.setItem("predictions", JSON.stringify(predictions));
+}
+
+function loadPrediction(fixtureId, player) {
+  let predictions = JSON.parse(localStorage.getItem("predictions") || "{}");
+  return predictions[fixtureId] ? predictions[fixtureId][player] : null;
+}
+
+// --- Add prediction boxes to each fixture div ---
+function renderPredictionBoxes() {
+  const player = document.getElementById("playerSelect").value;
+  const fixtures = document.querySelectorAll(".fixture");
+
+  fixtures.forEach((fixture, i) => {
+    const fixtureId = "fixture-" + i;
+
+    // check if prediction box already exists
+    let box = fixture.querySelector(".prediction-box");
+    if (!box) {
+      box = document.createElement("div");
+      box.classList.add("prediction-box");
+      box.innerHTML = `
+        <input type="number" class="pred-home" placeholder="Home">
+        <input type="number" class="pred-away" placeholder="Away">
+        <button class="save-pred">Save</button>
+        <span class="saved"></span>
+      `;
+      fixture.appendChild(box);
+
+      // Save button
+      box.querySelector(".save-pred").addEventListener("click", () => {
+        const home = box.querySelector(".pred-home").value;
+        const away = box.querySelector(".pred-away").value;
+        savePrediction(fixtureId, player, home, away);
+        box.querySelector(".saved").innerText = `Saved: ${home}-${away}`;
+      });
+    }
+
+    // Load saved prediction for current player
+    const pred = loadPrediction(fixtureId, player);
+    if (pred) {
+      box.querySelector(".pred-home").value = pred.home;
+      box.querySelector(".pred-away").value = pred.away;
+      box.querySelector(".saved").innerText = `Saved: ${pred.home}-${pred.away}`;
+    } else {
+      box.querySelector(".pred-home").value = "";
+      box.querySelector(".pred-away").value = "";
+      box.querySelector(".saved").innerText = "";
+    }
+  });
+}
+
+// --- Update predictions when player changes ---
+document.getElementById("playerSelect").addEventListener("change", renderPredictionBoxes);
+
+// --- Initial render ---
+window.onload = renderPredictionBoxes;
+</script>
+
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen">
+    <div class="container mx-auto px-4 py-6 max-w-6xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                🏉 Rugby Premiership Predictor
+            </h1>
+            <p class="text-lg text-gray-600 dark:text-gray-400">Season 2025/26 • 3 Player Championship</p>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex flex-wrap justify-center mb-6 border-b border-gray-200 dark:border-gray-700">
+            <button onclick="showTab('leaderboard')" id="tab-leaderboard" class="tab-button px-6 py-3 font-medium border-b-2 border-primary text-primary">
+                🏆 Leaderboard
+            </button>
+            <button onclick="showTab('predictions')" id="tab-predictions" class="tab-button px-6 py-3 font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                📊 Predictions
+            </button>
+            <button onclick="showTab('fixtures')" id="tab-fixtures" class="tab-button px-6 py-3 font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                📅 Fixtures
+            </button>
+            <button onclick="showTab('results')" id="tab-results" class="tab-button px-6 py-3 font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                ✅ Enter Results
+            </button>
 </html>

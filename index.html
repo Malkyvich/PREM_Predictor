@@ -82,14 +82,33 @@
 
         <!-- Predictions Tab -->
         <div id="predictions-tab" class="tab-content hidden">
-            <div class="mb-4">
-                <label for="player-select" class="block text-sm font-medium mb-2">Select Player:</label>
-                <select id="player-select" class="w-full md:w-64 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-base">
-                    <option value="player1">Martin</option>
-                    <option value="player2">Charles</option>
-                    <option value="player3">Alex</option>
-                </select>
+            <div class="mb-4 flex flex-wrap gap-3 items-center">
+                <div>
+                    <label for="player-select" class="block text-sm font-medium mb-2">Select Player:</label>
+                    <select id="player-select" class="w-64 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-base">
+                        <option value="player1">Martin</option>
+                        <option value="player2">Charles</option>
+                        <option value="player3">Alex</option>
+                    </select>
+                </div>
+                <div class="flex gap-2 mt-6">
+                    <button onclick="savePredictions()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium">
+                        💾 Save Predictions
+                    </button>
+                    <button onclick="downloadData()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium">
+                        📥 Download Data
+                    </button>
+                    <label class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium cursor-pointer">
+                        📤 Upload Data
+                        <input type="file" id="upload-input" accept=".json" class="hidden" onchange="uploadData(event)">
+                    </label>
+                </div>
             </div>
+            
+            <div id="save-status" class="mb-4 hidden p-3 rounded-lg">
+                <!-- Save status messages will appear here -->
+            </div>
+            
             <div id="predictions-content" class="grid gap-4">
                 <!-- Predictions will be populated here -->
             </div>
@@ -886,6 +905,102 @@
                 </div>
             `;
             document.body.appendChild(modal);
+        }
+
+        // Save predictions function
+        function savePredictions() {
+            const selectedPlayer = document.getElementById('player-select').value;
+            const playerName = playerNames[selectedPlayer];
+            
+            // Count current predictions for this player
+            let predictionCount = 0;
+            Object.keys(predictions[selectedPlayer] || {}).forEach(fixtureId => {
+                const prediction = predictions[selectedPlayer][fixtureId];
+                if (prediction && prediction.homeScore !== undefined && prediction.awayScore !== undefined && 
+                    prediction.homeScore !== '' && prediction.awayScore !== '') {
+                    predictionCount++;
+                }
+            });
+
+            showSaveStatus(`✅ Predictions saved for ${playerName}! (${predictionCount} matches predicted)`, 'success');
+        }
+
+        // Show save status message
+        function showSaveStatus(message, type) {
+            const statusDiv = document.getElementById('save-status');
+            statusDiv.className = `mb-4 p-3 rounded-lg ${type === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300'}`;
+            statusDiv.textContent = message;
+            statusDiv.classList.remove('hidden');
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Download data as JSON file
+        function downloadData() {
+            const data = {
+                fixtures,
+                predictions,
+                results,
+                playerNames,
+                exportDate: new Date().toISOString(),
+                version: '1.0'
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `rugby-predictor-data-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showSaveStatus('✅ Data downloaded successfully! Keep this file safe.', 'success');
+        }
+
+        // Upload data from JSON file
+        function uploadData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // Validate data structure
+                    if (!data.fixtures || !data.predictions || !data.results) {
+                        throw new Error('Invalid data format');
+                    }
+
+                    // Load the data
+                    fixtures = data.fixtures || [];
+                    predictions = data.predictions || { player1: {}, player2: {}, player3: {} };
+                    results = data.results || {};
+                    if (data.playerNames) {
+                        playerNames = data.playerNames;
+                    }
+
+                    // Refresh all views
+                    updateLeaderboard();
+                    updatePredictionsView();
+                    updateFixturesView();
+                    updateResultsView();
+                    
+                    showSaveStatus('✅ Data uploaded successfully! All predictions and results have been restored.', 'success');
+                    
+                } catch (error) {
+                    showSaveStatus('❌ Error uploading file: Invalid format or corrupted data.', 'error');
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset the input
+            event.target.value = '';
         }
 
         // Player selection change
